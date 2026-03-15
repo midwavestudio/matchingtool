@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconciliation Results - TYE Hotel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, #00d4ff, #7c3aed);
+            border-radius: 2px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .stat-card.success .stat-value {
+            color: #22c55e;
+        }
+
+        .stat-card.warning .stat-value {
+            color: #f59e0b;
+        }
+
+        .stat-card.danger .stat-value {
+            color: #f43f5e;
+        }
+
+        .stat-card.info .stat-value {
+            color: #00d4ff;
+        }
+
+        .stat-card.money .stat-value {
+            color: #a78bfa;
+        }
+
+        .actions {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.2);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px;
+            border-radius: 8px;
+            width: fit-content;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #94a3b8;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .tab:hover:not(.active) {
+            color: #e2e8f0;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #e2e8f0;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 14px 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            color: #94a3b8;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-matched {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+        }
+
+        .status-discrepancy {
+            background: rgba(244, 63, 94, 0.15);
+            color: #f43f5e;
+        }
+
+        .priority-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .priority-high {
+            background: rgba(244, 63, 94, 0.2);
+            color: #f43f5e;
+        }
+
+        .priority-medium {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .match-type {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .amount {
+            font-weight: 600;
+            color: #a78bfa;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.95rem;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+
+        .search-input::placeholder {
+            color: #64748b;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Reconciliation Results</h1>
+            <p class="subtitle">Analysis complete - review the findings below</p>
+        </header>
+
+        <div class="card">
+            <h2 class="card-title">Summary Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card info">
+                    <div class="stat-value">{{ stats.total_entries }}</div>
+                    <div class="stat-label">Total Entries</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-value">{{ stats.matched }}</div>
+                    <div class="stat-label">Matched</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-value">{{ stats.discrepancies }}</div>
+                    <div class="stat-label">Discrepancies</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-value">{{ stats.match_rate }}%</div>
+                    <div class="stat-label">Match Rate</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-value">{{ stats.total_missing_nights }}</div>
+                    <div class="stat-label">Missing Nights</div>
+                </div>
+                <div class="stat-card money">
+                    <div class="stat-value">${{ "{:,.2f}".format(stats.total_amount_owed) }}</div>
+                    <div class="stat-label">Amount Owed</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="/download/full" class="btn btn-primary">
+                <span>📥</span> Download Full Report
+            </a>
+            <a href="/download/unpaid" class="btn btn-primary">
+                <span>📥</span> Download Unpaid Guests
+            </a>
+            <a href="/" class="btn btn-secondary">
+                <span>🔄</span> New Reconciliation
+            </a>
+        </div>
+
+        <div class="card">
+            <div class="tabs">
+                <div class="tab active" data-tab="discrepancies">Discrepancies ({{ stats.discrepancies }})</div>
+                <div class="tab" data-tab="all">All Results ({{ stats.total_entries }})</div>
+            </div>
+
+            <div class="tab-content active" id="discrepancies">
+                <div class="search-box">
+                    <input type="text" class="search-input" id="searchDiscrepancies" placeholder="Search by name, room, or CLC number...">
+                </div>
+                
+                {% if discrepancies %}
+                <div class="table-container">
+                    <table id="discrepanciesTable">
+                        <thead>
+                            <tr>
+                                <th>Priority</th>
+                                <th>Name</th>
+                                <th>CLC #</th>
+                                <th>Room</th>
+                                <th>Check-in</th>
+                                <th>Check-out</th>
+                                <th>Expected</th>
+                                <th>Paid</th>
+                                <th>Missing</th>
+                                <th>Amount Owed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in discrepancies %}
+                            <tr>
+                                <td>
+                                    <span class="priority-badge priority-{{ row.Priority|lower }}">
+                                        {{ row.Priority }}
+                                    </span>
+                                </td>
+                                <td>{{ row.name }}</td>
+                                <td>{{ row.clc }}</td>
+                                <td>{{ row.room }}</td>
+                                <td>{{ row.checkin }}</td>
+                                <td>{{ row.checkout or 'N/A' }}</td>
+                                <td>{{ row.expected_nights }}</td>
+                                <td>{{ row.paid_nights }}</td>
+                                <td>{{ row.missing }}</td>
+                                <td class="amount">${{ "{:,.2f}".format(row.amount_owed) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">🎉</div>
+                    <p>No discrepancies found! All guests matched successfully.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="tab-content" id="all">
+                <div class="search-box">
+                    <input type="text" class="search-input" id="searchAll" placeholder="Search by name, room, or CLC number...">
+                </div>
+                
+                <div class="table-container">
+                    <table id="allTable">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Name</th>
+                                <th>CLC #</th>
+                                <th>Room</th>
+                                <th>Check-in</th>
+                                <th>Check-out</th>
+                                <th>Expected</th>
+                                <th>Paid</th>
+                                <th>Match Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in all_results %}
+                            <tr>
+                                <td>
+                                    <span class="status-badge status-{{ row.status|lower }}">
+                                        {% if row.status == 'MATCHED' %}✓{% else %}⚠{% endif %}
+                                        {{ row.status }}
+                                    </span>
+                                </td>
+                                <td>{{ row.name }}</td>
+                                <td>{{ row.clc }}</td>
+                                <td>{{ row.room }}</td>
+                                <td>{{ row.checkin }}</td>
+                                <td>{{ row.checkout or 'N/A' }}</td>
+                                <td>{{ row.expected_nights }}</td>
+                                <td>{{ row.paid_nights }}</td>
+                                <td><span class="match-type">{{ row.match_type }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>TYE Hotel Reconciliation Tool v1.0 | Rate: $80.93/night</p>
+        </footer>
+    </div>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Table search functionality
+        function setupSearch(inputId, tableId) {
+            const input = document.getElementById(inputId);
+            const table = document.getElementById(tableId);
+            
+            if (!input || !table) return;
+            
+            input.addEventListener('input', () => {
+                const filter = input.value.toLowerCase();
+                const rows = table.getElementsByTagName('tr');
+                
+                for (let i = 1; i < rows.length; i++) {
+                    const cells = rows[i].getElementsByTagName('td');
+                    let found = false;
+                    
+                    for (let j = 0; j < cells.length; j++) {
+                        if (cells[j].textContent.toLowerCase().includes(filter)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    
+                    rows[i].style.display = found ? '' : 'none';
+                }
+            });
+        }
+
+        setupSearch('searchDiscrepancies', 'discrepanciesTable');
+        setupSearch('searchAll', 'allTable');
+    </script>
+</body>
+</html>

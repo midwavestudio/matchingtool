@@ -1,0 +1,9 @@
+{
+  "name": "recontool",
+  "version": "1.0.0",
+  "description": "TYE Hotel Reconciliation Tool - Match kiosk check-in data against CLC sleep detail payment records",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "start": "node scripts/dev.js"
+  }
+}

@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TYE Hotel Reconciliation Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, #00d4ff, #7c3aed);
+            border-radius: 2px;
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 16px;
+        }
+
+        .upload-area:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .upload-area.dragover {
+            border-color: #7c3aed;
+            background: rgba(124, 58, 237, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .upload-text {
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-selected {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        .file-selected-icon {
+            color: #00d4ff;
+            font-size: 20px;
+        }
+
+        .file-selected-name {
+            flex: 1;
+            color: #e2e8f0;
+            font-size: 0.9rem;
+        }
+
+        .file-remove {
+            color: #f43f5e;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .file-remove:hover {
+            background: rgba(244, 63, 94, 0.2);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        input[type="date"] {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input[type="date"]:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 28px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .flash-messages {
+            margin-bottom: 24px;
+        }
+
+        .flash {
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .flash.error {
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            color: #fda4af;
+        }
+
+        .flash.success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #86efac;
+        }
+
+        .info-box {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+        }
+
+        .info-box h4 {
+            color: #00d4ff;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .info-box p {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .columns-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .column-tag {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #e2e8f0;
+            font-family: monospace;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-spinner {
+            text-align: center;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #fff;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>TYE Hotel Reconciliation Tool</h1>
+            <p class="subtitle">Match kiosk check-in data against CLC sleep detail payment records</p>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">
+                            {% if category == 'error' %}⚠️{% else %}✓{% endif %}
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form action="/reconcile" method="POST" enctype="multipart/form-data" id="reconcileForm">
+            <div class="card">
+                <h2 class="card-title">Upload Kiosk Data</h2>
+                <div class="upload-area" id="kioskUploadArea">
+                    <div class="upload-icon">📋</div>
+                    <p class="upload-text">Drop your kiosk data CSV here or click to browse</p>
+                    <p class="upload-hint">Contains guest check-in/checkout records</p>
+                    <input type="file" name="kiosk_file" id="kioskFile" class="file-input" accept=".csv" required>
+                </div>
+                <div id="kioskFileSelected" class="file-selected" style="display: none;">
+                    <span class="file-selected-icon">📄</span>
+                    <span class="file-selected-name" id="kioskFileName"></span>
+                    <span class="file-remove" onclick="removeFile('kiosk')">✕</span>
+                </div>
+                <div class="info-box">
+                    <h4>Required Columns:</h4>
+                    <div class="columns-list">
+                        <span class="column-tag">name</span>
+                        <span class="column-tag">sign_in_time</span>
+                        <span class="column-tag">sign_out_time</span>
+                        <span class="column-tag">Room number</span>
+                        <span class="column-tag">CLC number</span>
+                        <span class="column-tag">entry_id</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Upload Sleep Detail</h2>
+                <div class="upload-area" id="sleepUploadArea">
+                    <div class="upload-icon">💳</div>
+                    <p class="upload-text">Drop your sleep detail CSV here or click to browse</p>
+                    <p class="upload-hint">Contains CLC payment records</p>
+                    <input type="file" name="sleep_file" id="sleepFile" class="file-input" accept=".csv" required>
+                </div>
+                <div id="sleepFileSelected" class="file-selected" style="display: none;">
+                    <span class="file-selected-icon">📄</span>
+                    <span class="file-selected-name" id="sleepFileName"></span>
+                    <span class="file-remove" onclick="removeFile('sleep')">✕</span>
+                </div>
+                <div class="info-box">
+                    <h4>Required Columns:</h4>
+                    <div class="columns-list">
+                        <span class="column-tag">First Name</span>
+                        <span class="column-tag">Last Name</span>
+                        <span class="column-tag">Date In</span>
+                        <span class="column-tag">Date Out</span>
+                        <span class="column-tag">Room Number</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Date Range Filter (Optional)</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="date_start">Start Date</label>
+                        <input type="date" id="date_start" name="date_start">
+                    </div>
+                    <div class="form-group">
+                        <label for="date_end">End Date</label>
+                        <input type="date" id="date_end" name="date_end">
+                    </div>
+                </div>
+                <p class="upload-hint">Leave empty to process all records</p>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                <span>🔍</span>
+                Run Reconciliation
+            </button>
+        </form>
+
+        <footer>
+            <p>TYE Hotel Reconciliation Tool v1.0 | Target Accuracy: 99.2%</p>
+        </footer>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p class="loading-text">Processing reconciliation...</p>
+        </div>
+    </div>
+
+    <script>
+        // File upload handling
+        function setupUploadArea(areaId, inputId, selectedId, nameId) {
+            const area = document.getElementById(areaId);
+            const input = document.getElementById(inputId);
+            const selected = document.getElementById(selectedId);
+            const fileName = document.getElementById(nameId);
+
+            area.addEventListener('click', () => input.click());
+
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                area.classList.add('dragover');
+            });
+
+            area.addEventListener('dragleave', () => {
+                area.classList.remove('dragover');
+            });
+
+            area.addEventListener('drop', (e) => {
+                e.preventDefault();
+                area.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    input.files = e.dataTransfer.files;
+                    updateFileName(input, area, selected, fileName);
+                }
+            });
+
+            input.addEventListener('change', () => {
+                updateFileName(input, area, selected, fileName);
+            });
+        }
+
+        function updateFileName(input, area, selected, fileName) {
+            if (input.files.length) {
+                fileName.textContent = input.files[0].name;
+                selected.style.display = 'flex';
+                area.style.display = 'none';
+            }
+        }
+
+        function removeFile(type) {
+            const input = document.getElementById(type + 'File');
+            const area = document.getElementById(type + 'UploadArea');
+            const selected = document.getElementById(type + 'FileSelected');
+            
+            input.value = '';
+            selected.style.display = 'none';
+            area.style.display = 'block';
+        }
+
+        setupUploadArea('kioskUploadArea', 'kioskFile', 'kioskFileSelected', 'kioskFileName');
+        setupUploadArea('sleepUploadArea', 'sleepFile', 'sleepFileSelected', 'sleepFileName');
+
+        // Form submission
+        document.getElementById('reconcileForm').addEventListener('submit', function(e) {
+            const kioskFile = document.getElementById('kioskFile').files.length;
+            const sleepFile = document.getElementById('sleepFile').files.length;
+            
+            if (!kioskFile || !sleepFile) {
+                e.preventDefault();
+                alert('Please upload both files before running reconciliation.');
+                return;
+            }
+            
+            document.getElementById('loadingOverlay').classList.add('active');
+        });
+    </script>
+</body>
+</html>
