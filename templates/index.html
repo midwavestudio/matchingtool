@@ -320,14 +320,54 @@
             color: #fff;
             font-size: 1.1rem;
         }
+
+        .version-bar {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .version-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-decoration: none;
+            color: #94a3b8;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.04);
+            transition: all 0.2s ease;
+        }
+
+        .version-link:hover {
+            color: #e2e8f0;
+            border-color: rgba(0, 212, 255, 0.4);
+            background: rgba(0, 212, 255, 0.08);
+        }
+
+        .version-link.active {
+            color: #00d4ff;
+            border-color: rgba(0, 212, 255, 0.5);
+            background: rgba(0, 212, 255, 0.12);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>TYE Hotel Reconciliation Tool</h1>
-            <p class="subtitle">Match kiosk check-in data against CLC sleep detail payment records</p>
+            <p class="subtitle">Match arrivals or kiosk check-in data against CLC sleep detail payment records</p>
         </header>
+
+        <nav class="version-bar" aria-label="App version">
+            <span class="version-link active">Arrivals &amp; kiosk (current)</span>
+            <a class="version-link" href="{{ url_for('index_legacy') }}">Legacy kiosk version</a>
+        </nav>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -344,7 +384,7 @@
 
         <form action="/reconcile" method="POST" enctype="multipart/form-data" id="reconcileForm">
             <div class="card">
-                <h2 class="card-title">Upload Kiosk Data</h2>
+                <h2 class="card-title">Upload Arrivals or Kiosk Data</h2>
                 <div class="upload-area" id="kioskUploadArea">
                     <div class="upload-icon">📋</div>
                     <p class="upload-text">Drop your kiosk data CSV here or click to browse</p>
