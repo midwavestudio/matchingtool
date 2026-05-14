@@ -329,41 +329,14 @@
                 width: 100%;
             }
         }
-
-        .version-bar {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 24px;
-        }
-
-        .version-link {
-            display: inline-flex;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            text-decoration: none;
-            color: #94a3b8;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(255, 255, 255, 0.04);
-        }
-
-        .version-link:hover { color: #e2e8f0; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Reconciliation Results</h1>
-            <p class="subtitle">Analysis complete{% if version_label %} ({{ version_label }}){% endif %} — review the findings below</p>
+            <p class="subtitle">Analysis complete — review the findings below</p>
         </header>
-
-        <nav class="version-bar" aria-label="App version">
-            <a class="version-link" href="{{ url_for('index') }}">Arrivals &amp; kiosk</a>
-            <a class="version-link" href="{{ url_for('index_legacy') }}">Legacy kiosk</a>
-        </nav>
 
         <div class="card">
             <h2 class="card-title">Summary Statistics</h2>
@@ -402,7 +375,7 @@
             <a href="/download/unpaid" class="btn btn-primary">
                 <span>📥</span> Download Unpaid Guests
             </a>
-            <a href="{{ home_url|default('/') }}" class="btn btn-secondary">
+            <a href="/" class="btn btn-secondary">
                 <span>🔄</span> New Reconciliation
             </a>
         </div>

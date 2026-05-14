@@ -413,22 +413,14 @@ def normalize_kiosk_df(df):
     return df
 
 
-def reconcile(kiosk_df, sleep_df, date_start=None, date_end=None, legacy_mode=False):
+def reconcile(kiosk_df, sleep_df, date_start=None, date_end=None):
     """
     Main reconciliation function.
     Returns DataFrame with reconciliation results.
-    legacy_mode: if True, expect legacy kiosk CSV only (no arrivals normalization).
     """
     results = []
 
-    kiosk_df = kiosk_df.copy()
-    if not legacy_mode:
-        kiosk_df = normalize_kiosk_df(kiosk_df)
-    else:
-        cols = [c.strip() for c in kiosk_df.columns]
-        kiosk_df.columns = cols
-        if 'entry_id' not in cols:
-            kiosk_df['entry_id'] = range(len(kiosk_df))
+    kiosk_df = normalize_kiosk_df(kiosk_df.copy())
 
     # Parse datetime columns for kiosk
     kiosk_df['cin'] = kiosk_df['sign_in_time'].apply(parse_datetime)
@@ -505,46 +497,33 @@ def reconcile(kiosk_df, sleep_df, date_start=None, date_end=None, legacy_mode=Fa
 # FLASK ROUTES
 # ============================================================================
 
-def _handle_reconciliation(legacy_mode=False):
-    """Shared POST handler for main and legacy reconciliation."""
-    home_endpoint = 'index_legacy' if legacy_mode else 'index'
-
+def _handle_reconciliation():
+    """Process uploaded files and run reconciliation."""
     try:
         if 'kiosk_file' not in request.files or 'sleep_file' not in request.files:
             flash('Please upload both kiosk data and sleep detail files.', 'error')
-            return redirect(url_for(home_endpoint))
+            return redirect(url_for('index'))
 
         kiosk_file = request.files['kiosk_file']
         sleep_file = request.files['sleep_file']
 
         if kiosk_file.filename == '' or sleep_file.filename == '':
             flash('Please select both files.', 'error')
-            return redirect(url_for(home_endpoint))
+            return redirect(url_for('index'))
 
         try:
             kiosk_df = pd.read_csv(kiosk_file)
             sleep_df = pd.read_csv(sleep_file)
         except Exception as e:
             flash(f'Error reading CSV files: {str(e)}', 'error')
-            return redirect(url_for(home_endpoint))
+            return redirect(url_for('index'))
 
         kiosk_cols = kiosk_df.columns.tolist()
-
-        if legacy_mode:
-            kiosk_required = ['name', 'sign_in_time', 'Room number']
-            if 'Check-In Date' in kiosk_cols and 'Check-In Time' in kiosk_cols:
-                flash(
-                    'This page is for legacy kiosk CSV only. '
-                    'Use the main app for arrivals exports.',
-                    'error'
-                )
-                return redirect(url_for(home_endpoint))
+        is_arrivals_format = 'Check-In Date' in kiosk_cols and 'Check-In Time' in kiosk_cols
+        if is_arrivals_format:
+            kiosk_required = ['Name', 'Check-In Date', 'Check-In Time', 'Room']
         else:
-            is_arrivals_format = 'Check-In Date' in kiosk_cols and 'Check-In Time' in kiosk_cols
-            if is_arrivals_format:
-                kiosk_required = ['Name', 'Check-In Date', 'Check-In Time', 'Room']
-            else:
-                kiosk_required = ['name', 'sign_in_time', 'Room number']
+            kiosk_required = ['name', 'sign_in_time', 'Room number']
 
         sleep_required = ['First Name', 'Last Name', 'Date In', 'Room Number']
 
@@ -552,13 +531,12 @@ def _handle_reconciliation(legacy_mode=False):
         missing_sleep = [col for col in sleep_required if col not in sleep_df.columns]
 
         if missing_kiosk:
-            label = 'Kiosk' if legacy_mode else 'Kiosk/Arrivals'
-            flash(f'{label} file missing columns: {", ".join(missing_kiosk)}', 'error')
-            return redirect(url_for(home_endpoint))
+            flash(f'Kiosk/Arrivals file missing columns: {", ".join(missing_kiosk)}', 'error')
+            return redirect(url_for('index'))
 
         if missing_sleep:
             flash(f'Sleep detail file missing columns: {", ".join(missing_sleep)}', 'error')
-            return redirect(url_for(home_endpoint))
+            return redirect(url_for('index'))
 
         date_start = request.form.get('date_start', None)
         date_end = request.form.get('date_end', None)
@@ -567,7 +545,7 @@ def _handle_reconciliation(legacy_mode=False):
         if date_end == '':
             date_end = None
 
-        results_df = reconcile(kiosk_df, sleep_df, date_start, date_end, legacy_mode=legacy_mode)
+        results_df = reconcile(kiosk_df, sleep_df, date_start, date_end)
 
         total_entries = len(results_df)
         matched = len(results_df[results_df['status'] == 'MATCHED'])
@@ -602,37 +580,23 @@ def _handle_reconciliation(legacy_mode=False):
             stats=stats,
             discrepancies=discrepancy_df.to_dict('records'),
             all_results=results_df.to_dict('records'),
-            home_url=url_for(home_endpoint),
-            version_label='Legacy kiosk' if legacy_mode else 'Arrivals & kiosk',
         )
 
     except Exception as e:
         flash(f'Error during reconciliation: {str(e)}', 'error')
-        return redirect(url_for(home_endpoint))
+        return redirect(url_for('index'))
 
 
 @app.route('/')
 def index():
-    """Main page — arrivals and kiosk formats."""
+    """Main page with file upload form."""
     return render_template('index.html')
-
-
-@app.route('/legacy')
-def index_legacy():
-    """Legacy page — original kiosk CSV format only."""
-    return render_template('index_legacy.html')
 
 
 @app.route('/reconcile', methods=['POST'])
 def run_reconciliation():
-    """Process uploaded files (arrivals or kiosk)."""
-    return _handle_reconciliation(legacy_mode=False)
-
-
-@app.route('/reconcile/legacy', methods=['POST'])
-def run_reconciliation_legacy():
-    """Process uploaded files (legacy kiosk only)."""
-    return _handle_reconciliation(legacy_mode=True)
+    """Process uploaded files and run reconciliation."""
+    return _handle_reconciliation()
 
 
 @app.route('/download/<report_type>')
