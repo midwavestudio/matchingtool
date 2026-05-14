@@ -247,6 +247,14 @@ def parse_datetime(dt_str):
         '%Y/%m/%d %H:%M',
         '%d/%m/%y %H:%M',
         '%d/%m/%Y %H:%M',
+        # Arrivals format: "May 13, 2026 10:54 PM"
+        '%B %d, %Y %I:%M %p',
+        '%B %d, %Y %H:%M',
+        # Date only (arrivals date column without time)
+        '%B %d, %Y',
+        '%m/%d/%Y',
+        '%m/%d/%y',
+        '%Y-%m-%d',
     ]
     
     for fmt in formats:
@@ -361,17 +369,65 @@ def find_matches(kiosk_entry, sleep_df):
 # MAIN RECONCILIATION FUNCTION
 # ============================================================================
 
+def normalize_kiosk_df(df):
+    """
+    Normalize a kiosk/arrivals DataFrame into standard internal columns:
+      name, CLC number, Room number, sign_in_time, sign_out_time
+    Supports both the old kiosk format and the new arrivals format.
+    """
+    df = df.copy()
+    cols = [c.strip() for c in df.columns]
+    df.columns = cols
+
+    # --- New arrivals format: Name / Check-In Date / Check-In Time ---
+    if 'Check-In Date' in cols and 'Check-In Time' in cols:
+        # Combine date + time columns into a single datetime string
+        def combine_dt(row, date_col, time_col):
+            d = str(row[date_col]).strip() if pd.notna(row[date_col]) else ''
+            t = str(row[time_col]).strip() if pd.notna(row[time_col]) else ''
+            if not d or d.lower() in ('nat', 'nan', ''):
+                return None
+            return f"{d} {t}".strip() if t and t.lower() not in ('nat', 'nan') else d
+
+        df['sign_in_time']  = df.apply(lambda r: combine_dt(r, 'Check-In Date',  'Check-In Time'),  axis=1)
+        df['sign_out_time'] = df.apply(lambda r: combine_dt(r, 'Check-Out Date', 'Check-Out Time'), axis=1) \
+            if 'Check-Out Date' in cols else None
+
+        # Map column names to standard names
+        if 'Name' in cols and 'name' not in cols:
+            df['name'] = df['Name']
+        if 'CLC Number' in cols and 'CLC number' not in cols:
+            df['CLC number'] = df['CLC Number']
+        if 'Room' in cols and 'Room number' not in cols:
+            df['Room number'] = df['Room']
+
+        # entry_id from Reservation ID if present, else row index
+        if 'entry_id' not in cols:
+            df['entry_id'] = df.get('Reservation ID', pd.Series(range(len(df))))
+
+    # --- Old kiosk format: sign_in_time already present ---
+    else:
+        if 'entry_id' not in cols:
+            df['entry_id'] = range(len(df))
+
+    return df
+
+
 def reconcile(kiosk_df, sleep_df, date_start=None, date_end=None):
     """
     Main reconciliation function.
     Returns DataFrame with reconciliation results.
     """
     results = []
-    
+
+    # Normalize kiosk input (handles both old and new arrivals format)
+    kiosk_df = normalize_kiosk_df(kiosk_df)
+
     # Parse datetime columns for kiosk
     kiosk_df = kiosk_df.copy()
     kiosk_df['cin'] = kiosk_df['sign_in_time'].apply(parse_datetime)
-    kiosk_df['cout'] = kiosk_df['sign_out_time'].apply(parse_datetime)
+    kiosk_df['cout'] = kiosk_df['sign_out_time'].apply(parse_datetime) \
+        if 'sign_out_time' in kiosk_df.columns else pd.NaT
     
     # Parse datetime columns for sleep detail
     sleep_df = sleep_df.copy()
@@ -473,15 +529,22 @@ def run_reconciliation():
             flash(f'Error reading CSV files: {str(e)}', 'error')
             return redirect(url_for('index'))
         
-        # Validate required columns
-        kiosk_required = ['name', 'sign_in_time', 'Room number']
+        # Validate required columns — support both kiosk formats
+        kiosk_cols = kiosk_df.columns.tolist()
+        is_arrivals_format = 'Check-In Date' in kiosk_cols and 'Check-In Time' in kiosk_cols
+
+        if is_arrivals_format:
+            kiosk_required = ['Name', 'Check-In Date', 'Check-In Time', 'Room']
+        else:
+            kiosk_required = ['name', 'sign_in_time', 'Room number']
+
         sleep_required = ['First Name', 'Last Name', 'Date In', 'Room Number']
         
-        missing_kiosk = [col for col in kiosk_required if col not in kiosk_df.columns]
+        missing_kiosk = [col for col in kiosk_required if col not in kiosk_cols]
         missing_sleep = [col for col in sleep_required if col not in sleep_df.columns]
         
         if missing_kiosk:
-            flash(f'Kiosk file missing columns: {", ".join(missing_kiosk)}', 'error')
+            flash(f'Kiosk/Arrivals file missing columns: {", ".join(missing_kiosk)}', 'error')
             return redirect(url_for('index'))
         
         if missing_sleep:
