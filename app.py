@@ -42,6 +42,7 @@ FIRST_NAME_VARIATIONS = {
     'TIMOTHY': ['TIM', 'TIMMY'],
     'JEFFREY': ['JEFF'],
     'JONATHAN': ['JON', 'JONNY'],
+    'FRANKLIN': ['FRANK'],
     'ZACHARY': ['ZACH', 'ZACK'],
     'NICHOLAS': ['NICK', 'NICKY'],
     'ALEXANDER': ['ALEX', 'AL'],
@@ -296,10 +297,19 @@ def parse_datetime(dt_str):
 
 
 def normalize_room(room):
-    """Normalize room number for comparison."""
+    """Normalize room number for comparison.
+
+    Strips trailing letter qualifiers (i, a, b, q, etc.) that appear in
+    arrivals exports (e.g. '309i', '316a') but not in sleep detail records.
+    E.g. '309i' -> '309', '305a' -> '305', 'ADVANTAGE' stays as-is.
+    """
     if pd.isna(room):
         return ""
-    return str(room).strip().upper().replace(' ', '')
+    r = str(room).strip().upper().replace(' ', '')
+    # Remove a single trailing letter only when the base is all digits
+    if r and r[-1].isalpha() and r[:-1].isdigit():
+        r = r[:-1]
+    return r
 
 
 def format_datetime_display(dt):
@@ -321,23 +331,58 @@ def format_datetime_display(dt):
 # MATCHING LOGIC
 # ============================================================================
 
+def _names_match(k_first, k_last, s_first, s_last, k_room, s_room):
+    """
+    Core name-matching logic. Returns (matched, match_type) for one candidate pair.
+    Tries k against sleep (first, last) as-is; caller also tries swapped order.
+    """
+    matched = False
+    match_type = None
+
+    # Priority 1: Name match (exact or fuzzy last name)
+    if first_names_match(k_first, s_first):
+        result, similarity = last_names_match(k_last, s_last)
+        if result:
+            matched = True
+            match_type = 'exact' if similarity == 1.0 else 'fuzzy'
+
+    # Priority 2: First name + same room (handles middle-name differences)
+    if not matched and first_names_match(k_first, s_first):
+        if k_room and s_room and k_room == s_room:
+            matched = True
+            match_type = 'middle_name'
+
+    # Priority 3: Initials only
+    if not matched and is_initials_only(k_first, k_last):
+        if k_room and s_room and k_room == s_room:
+            if s_first and s_last:
+                if k_first.upper() == s_first[0].upper() and k_last.upper() == s_last[0].upper():
+                    matched = True
+                    match_type = 'initials'
+
+    return matched, match_type
+
+
 def find_matches(kiosk_entry, sleep_df):
     """
     Find all matching sleep detail entries for a kiosk entry.
     Returns list of matches and match type.
+
+    Handles sleep-detail rows where First Name / Last Name are swapped by
+    trying both orderings before giving up.
     """
     matches = []
     match_type = None
-    
+
     k_first = kiosk_entry['first_raw']
     k_last = kiosk_entry['last_raw']
     k_room = kiosk_entry['room_norm']
     k_cin = kiosk_entry['cin']
     k_cout = kiosk_entry['cout']
-    
+
     if pd.isna(k_cin):
         return [], None
-    
+
     # Calculate search window
     if pd.isna(k_cout):
         search_start = k_cin - timedelta(days=1)
@@ -345,52 +390,33 @@ def find_matches(kiosk_entry, sleep_df):
     else:
         search_start = k_cin - timedelta(days=1)
         search_end = k_cout + timedelta(days=1)
-    
+
     # Filter candidates by date range
     candidates = sleep_df[
         (sleep_df['cin'].notna()) &
         (sleep_df['cin'] >= search_start) &
         (sleep_df['cin'] <= search_end)
     ]
-    
+
     for _, s in candidates.iterrows():
         s_first = s['first_raw']
         s_last = s['last_raw']
         s_room = s['room_norm']
-        
-        matched = False
-        current_match_type = None
-        
-        # Priority 1: Exact name match
-        if first_names_match(k_first, s_first):
-            match_result, similarity = last_names_match(k_last, s_last)
-            if match_result:
-                if similarity == 1.0:
-                    matched = True
-                    current_match_type = 'exact'
-                else:
-                    matched = True
-                    current_match_type = 'fuzzy'
-        
-        # Priority 3: Middle name case (first name + room + date match)
-        if not matched and first_names_match(k_first, s_first):
-            if k_room and s_room and k_room == s_room:
-                matched = True
-                current_match_type = 'middle_name'
-        
-        # Priority 4: Initials only
-        if not matched and is_initials_only(k_first, k_last):
-            if k_room and s_room and k_room == s_room:
-                if s_first and s_last:
-                    if k_first.upper() == s_first[0].upper() and k_last.upper() == s_last[0].upper():
-                        matched = True
-                        current_match_type = 'initials'
-        
+
+        # Try normal order first
+        matched, current_match_type = _names_match(k_first, k_last, s_first, s_last, k_room, s_room)
+
+        # If no match, try sleep-detail names swapped (data-entry reversal in CLC)
+        if not matched:
+            matched, swapped_type = _names_match(k_first, k_last, s_last, s_first, k_room, s_room)
+            if matched:
+                current_match_type = swapped_type + '_swapped' if swapped_type else 'swapped'
+
         if matched:
             matches.append(s)
             if match_type is None:
                 match_type = current_match_type
-    
+
     return matches, match_type
 
 
