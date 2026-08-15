@@ -7,8 +7,9 @@ import os
 import io
 import re
 import unicodedata
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date, time
 from difflib import SequenceMatcher
+from dateutil import parser as date_parser
 from flask import Flask, render_template, request, send_file, jsonify, flash, redirect, url_for
 import pandas as pd
 
@@ -230,12 +231,30 @@ def is_initials_only(first, last):
 # ============================================================================
 
 def parse_datetime(dt_str):
-    """Parse datetime from various formats."""
-    if pd.isna(dt_str) or not str(dt_str).strip():
+    """Parse datetime from various formats, including arrivals exports."""
+    if dt_str is None:
         return None
-    
+    if isinstance(dt_str, datetime):
+        return dt_str.replace(tzinfo=None) if dt_str.tzinfo else dt_str
+    if isinstance(dt_str, pd.Timestamp):
+        if pd.isna(dt_str):
+            return None
+        return dt_str.to_pydatetime().replace(tzinfo=None)
+    if isinstance(dt_str, date) and not isinstance(dt_str, datetime):
+        return datetime.combine(dt_str, time.min)
+    if isinstance(dt_str, time):
+        return None
+
+    try:
+        if pd.isna(dt_str):
+            return None
+    except (ValueError, TypeError):
+        pass
+
     dt_str = str(dt_str).strip()
-    
+    if not dt_str or dt_str.lower() in ('nat', 'nan', 'none', 'nat'):
+        return None
+
     formats = [
         '%Y-%m-%d %H:%M:%S',
         '%Y-%m-%d %H:%M',
@@ -247,23 +266,33 @@ def parse_datetime(dt_str):
         '%Y/%m/%d %H:%M',
         '%d/%m/%y %H:%M',
         '%d/%m/%Y %H:%M',
-        # Arrivals format: "May 13, 2026 10:54 PM"
+        # Arrivals: "May 13, 2026 10:54 PM" and abbreviated "Jun 5, 2026 9:26 AM"
         '%B %d, %Y %I:%M %p',
+        '%B %d, %Y %I:%M:%S %p',
+        '%b %d, %Y %I:%M %p',
+        '%b %d, %Y %I:%M:%S %p',
         '%B %d, %Y %H:%M',
-        # Date only (arrivals date column without time)
+        '%b %d, %Y %H:%M',
         '%B %d, %Y',
+        '%b %d, %Y',
         '%m/%d/%Y',
         '%m/%d/%y',
         '%Y-%m-%d',
     ]
-    
+
     for fmt in formats:
         try:
             return datetime.strptime(dt_str, fmt)
         except ValueError:
             continue
-    
-    return None
+
+    try:
+        parsed = date_parser.parse(dt_str, fuzzy=False)
+        if parsed.tzinfo:
+            parsed = parsed.replace(tzinfo=None)
+        return parsed
+    except (ValueError, OverflowError, TypeError):
+        return None
 
 
 def normalize_room(room):
@@ -365,6 +394,13 @@ def find_matches(kiosk_entry, sleep_df):
     return matches, match_type
 
 
+RESULT_COLUMNS = [
+    'entry_id', 'name', 'clc', 'room', 'checkin', 'checkout',
+    'expected_nights', 'paid_nights', 'status', 'missing',
+    'match_type', 'amount_owed',
+]
+
+
 # ============================================================================
 # MAIN RECONCILIATION FUNCTION
 # ============================================================================
@@ -376,7 +412,7 @@ def normalize_kiosk_df(df):
     Supports both the old kiosk format and the new arrivals format.
     """
     df = df.copy()
-    cols = [c.strip() for c in df.columns]
+    cols = [str(c).strip().lstrip('\ufeff') for c in df.columns]
     df.columns = cols
 
     # --- New arrivals format: Name / Check-In Date / Check-In Time ---
@@ -426,17 +462,31 @@ def reconcile(kiosk_df, sleep_df, date_start=None, date_end=None):
     kiosk_df['cin'] = kiosk_df['sign_in_time'].apply(parse_datetime)
     kiosk_df['cout'] = kiosk_df['sign_out_time'].apply(parse_datetime) \
         if 'sign_out_time' in kiosk_df.columns else pd.NaT
-    
+
     # Parse datetime columns for sleep detail
     sleep_df = sleep_df.copy()
+    sleep_df.columns = [str(c).strip().lstrip('\ufeff') for c in sleep_df.columns]
+    if 'Room #' in sleep_df.columns and 'Room Number' not in sleep_df.columns:
+        sleep_df = sleep_df.rename(columns={'Room #': 'Room Number'})
     sleep_df['cin'] = sleep_df['Date In'].apply(parse_datetime)
-    sleep_df['cout'] = sleep_df['Date Out'].apply(parse_datetime)
-    
-    # Filter by date range if specified
+    if 'Date Out' in sleep_df.columns:
+        sleep_df['cout'] = sleep_df['Date Out'].apply(parse_datetime)
+    else:
+        sleep_df['cout'] = pd.NaT
+
+    # Filter by date range if specified (end date is inclusive of that calendar day)
     if date_start:
-        kiosk_df = kiosk_df[kiosk_df['cin'] >= parse_datetime(date_start)]
+        start_dt = parse_datetime(date_start)
+        if start_dt:
+            kiosk_df = kiosk_df[kiosk_df['cin'] >= start_dt]
     if date_end:
-        kiosk_df = kiosk_df[kiosk_df['cin'] <= parse_datetime(date_end)]
+        end_dt = parse_datetime(date_end)
+        if end_dt:
+            end_dt = end_dt.replace(hour=23, minute=59, second=59)
+            kiosk_df = kiosk_df[kiosk_df['cin'] <= end_dt]
+
+    if kiosk_df.empty:
+        return pd.DataFrame(columns=RESULT_COLUMNS)
     
     # Extract and normalize names for kiosk
     kiosk_df[['first_raw', 'last_raw']] = kiosk_df['name'].apply(
@@ -490,6 +540,8 @@ def reconcile(kiosk_df, sleep_df, date_start=None, date_end=None):
             'amount_owed': missing * NIGHTLY_RATE
         })
     
+    if not results:
+        return pd.DataFrame(columns=RESULT_COLUMNS)
     return pd.DataFrame(results)
 
 
@@ -517,6 +569,11 @@ def _handle_reconciliation():
         except Exception as e:
             flash(f'Error reading CSV files: {str(e)}', 'error')
             return redirect(url_for('index'))
+
+        kiosk_df.columns = [str(c).strip().lstrip('\ufeff') for c in kiosk_df.columns]
+        sleep_df.columns = [str(c).strip().lstrip('\ufeff') for c in sleep_df.columns]
+        if 'Room #' in sleep_df.columns and 'Room Number' not in sleep_df.columns:
+            sleep_df = sleep_df.rename(columns={'Room #': 'Room Number'})
 
         kiosk_cols = kiosk_df.columns.tolist()
         is_arrivals_format = 'Check-In Date' in kiosk_cols and 'Check-In Time' in kiosk_cols
@@ -546,6 +603,14 @@ def _handle_reconciliation():
             date_end = None
 
         results_df = reconcile(kiosk_df, sleep_df, date_start, date_end)
+
+        if results_df.empty:
+            flash(
+                'No kiosk/arrivals rows had a usable check-in date. '
+                'Check the date columns in the arrivals file, or widen the date range filter.',
+                'error'
+            )
+            return redirect(url_for('index'))
 
         total_entries = len(results_df)
         matched = len(results_df[results_df['status'] == 'MATCHED'])
