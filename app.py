@@ -6,6 +6,7 @@ Flask web application for matching kiosk check-in data against CLC sleep detail 
 import os
 import io
 import re
+import math
 import unicodedata
 from datetime import datetime, timedelta, date, time
 from difflib import SequenceMatcher
@@ -539,7 +540,16 @@ def reconcile(kiosk_df, sleep_df, date_start=None, date_end=None):
         if pd.isna(k_cout):
             expected_nights = 1
         else:
-            expected_nights = max(1, (k_cout.date() - k_cin.date()).days)
+            calendar_nights = max(1, (k_cout.date() - k_cin.date()).days)
+            # Additional rule: if the guest physically stayed over 24 hours,
+            # every complete 24-hour block beyond the first counts as an extra
+            # night.  e.g. 25-hour stay → 2 nights even when calendar days = 1.
+            hours_stayed = (k_cout - k_cin).total_seconds() / 3600
+            if hours_stayed > 24:
+                duration_nights = math.ceil(hours_stayed / 24)
+                expected_nights = max(calendar_nights, duration_nights)
+            else:
+                expected_nights = calendar_nights
         
         # Find all matching sleep entries
         matching_entries, match_type = find_matches(k, sleep_df)
