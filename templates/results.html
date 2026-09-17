@@ -254,6 +254,37 @@
             color: #f59e0b;
         }
 
+        .payment-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .payment-partial {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+
+        .payment-unpaid {
+            background: rgba(244, 63, 94, 0.15);
+            color: #f43f5e;
+        }
+
+        .payment-paid {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+        }
+
+        tr.row-partial {
+            box-shadow: inset 3px 0 0 #f59e0b;
+        }
+
         .match-type {
             font-size: 0.8rem;
             color: #64748b;
@@ -397,6 +428,7 @@
                         <thead>
                             <tr>
                                 <th>Priority</th>
+                                <th>Payment</th>
                                 <th>Name</th>
                                 <th>CLC #</th>
                                 <th>Room</th>
@@ -410,11 +442,22 @@
                         </thead>
                         <tbody>
                             {% for row in discrepancies %}
-                            <tr>
+                            <tr class="{{ 'row-partial' if row.payment_status == 'PARTIAL' else '' }}">
                                 <td>
                                     <span class="priority-badge priority-{{ row.Priority|lower }}">
                                         {{ row.Priority }}
                                     </span>
+                                </td>
+                                <td>
+                                    {% if row.payment_status == 'PARTIAL' %}
+                                    <span class="payment-badge payment-partial" title="{{ row.paid_nights }} of {{ row.expected_nights }} night(s) paid">
+                                        ◐ PARTIAL ({{ row.paid_nights }}/{{ row.expected_nights }})
+                                    </span>
+                                    {% else %}
+                                    <span class="payment-badge payment-unpaid" title="No nights paid">
+                                        ✕ UNPAID
+                                    </span>
+                                    {% endif %}
                                 </td>
                                 <td>{{ row.name }}</td>
                                 <td>{{ row.clc }}</td>
@@ -448,6 +491,7 @@
                         <thead>
                             <tr>
                                 <th>Status</th>
+                                <th>Payment</th>
                                 <th>Name</th>
                                 <th>CLC #</th>
                                 <th>Room</th>
@@ -460,12 +504,27 @@
                         </thead>
                         <tbody>
                             {% for row in all_results %}
-                            <tr>
+                            <tr class="{{ 'row-partial' if row.payment_status == 'PARTIAL' else '' }}">
                                 <td>
                                     <span class="status-badge status-{{ row.status|lower }}">
                                         {% if row.status == 'MATCHED' %}✓{% else %}⚠{% endif %}
                                         {{ row.status }}
                                     </span>
+                                </td>
+                                <td>
+                                    {% if row.payment_status == 'PARTIAL' %}
+                                    <span class="payment-badge payment-partial" title="{{ row.paid_nights }} of {{ row.expected_nights }} night(s) paid">
+                                        ◐ PARTIAL ({{ row.paid_nights }}/{{ row.expected_nights }})
+                                    </span>
+                                    {% elif row.payment_status == 'UNPAID' %}
+                                    <span class="payment-badge payment-unpaid" title="No nights paid">
+                                        ✕ UNPAID
+                                    </span>
+                                    {% else %}
+                                    <span class="payment-badge payment-paid" title="All nights paid">
+                                        ✓ PAID
+                                    </span>
+                                    {% endif %}
                                 </td>
                                 <td>{{ row.name }}</td>
                                 <td>{{ row.clc }}</td>

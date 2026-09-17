@@ -423,7 +423,7 @@ def find_matches(kiosk_entry, sleep_df):
 
 RESULT_COLUMNS = [
     'entry_id', 'name', 'clc', 'room', 'checkin', 'checkout',
-    'expected_nights', 'paid_nights', 'status', 'missing',
+    'expected_nights', 'paid_nights', 'status', 'payment_status', 'missing',
     'match_type', 'amount_owed',
 ]
 
@@ -560,7 +560,17 @@ def reconcile(kiosk_df, sleep_df, date_start=None, date_end=None):
         # Calculate discrepancy
         missing = max(0, expected_nights - paid_nights)
         status = 'MATCHED' if missing == 0 else 'DISCREPANCY'
-        
+
+        # Flag reservations that are only partially paid (e.g. 1 night paid,
+        # 1 night unpaid) so they're clearly distinguishable from guests who
+        # paid nothing at all.
+        if status == 'MATCHED':
+            payment_status = 'PAID'
+        elif paid_nights > 0:
+            payment_status = 'PARTIAL'
+        else:
+            payment_status = 'UNPAID'
+
         results.append({
             'entry_id': k.get('entry_id', idx),
             'name': k.get('name', ''),
@@ -571,6 +581,7 @@ def reconcile(kiosk_df, sleep_df, date_start=None, date_end=None):
             'expected_nights': expected_nights,
             'paid_nights': paid_nights,
             'status': status,
+            'payment_status': payment_status,
             'missing': missing,
             'match_type': match_type if match_type else 'no_match',
             'amount_owed': missing * NIGHTLY_RATE
